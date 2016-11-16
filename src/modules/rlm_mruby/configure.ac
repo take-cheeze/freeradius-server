@@ -80,6 +80,20 @@ if test x$with_[]modname != xno; then
 		AC_MSG_WARN([mruby/array.h not found. Use --with-mruby-include-dir=<path>.])
 		fail="$fail mruby/array.h"
 	fi
+
+	old_LIBS=$LIBS
+	LIBS="$LIBS -lmruby -lm"
+	smart_try_dir="$mruby_lib_dir /usr/lib"
+	FR_SMART_CHECK_LIB(mruby, mrb_run)
+	LIBS=$old_LIBS
+
+	if test "x$ac_cv_lib_mruby_mrb_run" = "xyes"; then
+		mod_ldflags="$SMART_LIBS"
+		#mod_ldflags="$SMART_LIBS -lm"
+	else
+		AC_MSG_WARN([mruby libraries not found. Use --with-mruby-lib-dir=<path>.])
+		fail="$fail libmruby"
+	fi
 	
 	targetname=modname
 else
@@ -97,7 +111,7 @@ if test x"$fail" != x""; then
 	fi
 fi
 
-mod_ldflags="${SMART_LIBS} -lmruby -lm"
+mod_ldflags="${mod_ldflags} ${SMART_LIBS}"
 mod_cflags="${SMART_CPPFLAGS}"
 
 AC_SUBST(mod_cflags)
