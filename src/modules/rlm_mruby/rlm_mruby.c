@@ -39,34 +39,21 @@ RCSID("$Id$")
  *	a lot cleaner to do so, and a pointer to the structure can
  *	be used as the instance handle.
  */
-typedef struct rlm_example_t {
-	bool		boolean;
-	uint32_t	value;
-	char const	*string;
-	fr_ipaddr_t	ipaddr;
-} rlm_example_t;
+typedef struct rlm_mruby_t {
+	char const *filename;
+	char const *module_name;
+
+	mrb_state *mrb;
+} rlm_mruby_t;
 
 /*
  *	A mapping of configuration file names to internal variables.
  */
 static const CONF_PARSER module_config[] = {
-	{ FR_CONF_OFFSET("integer", PW_TYPE_INTEGER, rlm_example_t, value), .dflt = "1" },
-	{ FR_CONF_OFFSET("boolean", PW_TYPE_BOOLEAN, rlm_example_t, boolean), .dflt = "no" },
-	{ FR_CONF_OFFSET("string", PW_TYPE_STRING, rlm_example_t, string) },
-	{ FR_CONF_OFFSET("ipaddr", PW_TYPE_IPV4_ADDR, rlm_example_t, ipaddr), .dflt = "*" },
+	{ FR_CONF_OFFSET("filename", PW_TYPE_FILE_INPUT | PW_TYPE_REQUIRED, struct rlm_mruby_t, filename) },
+	{ FR_CONF_OFFSET("module", PW_TYPE_STRING, struct rlm_mruby_t, module_name), .dflt = "Radiusd" },
 	CONF_PARSER_TERMINATOR
 };
-
-static int rlm_example_cmp(UNUSED void *instance, REQUEST *request, UNUSED VALUE_PAIR *thing, VALUE_PAIR *check,
-			   UNUSED VALUE_PAIR *check_pairs, UNUSED VALUE_PAIR **reply_pairs)
-{
-	rad_assert(check->da->type == PW_TYPE_STRING);
-
-	RINFO("Example-Paircmp called with \"%s\"", check->vp_strvalue);
-
-	if (strcmp(check->vp_strvalue, "yes") == 0) return 0;
-	return 1;
-}
 
 /*
  *	Do any per-module initialization that is separate to each
@@ -74,20 +61,15 @@ static int rlm_example_cmp(UNUSED void *instance, REQUEST *request, UNUSED VALUE
  *	to external databases, read configuration files, set up
  *	dictionary entries, etc.
  */
-static int mod_instantiate(CONF_SECTION *conf, void *instance)
+static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
-	rlm_example_t	*inst = instance;
+	rlm_mruby_t *inst = instance;
 
-	/*
-	 *	Do more work here
-	 */
-	if (!inst->boolean) {
-		cf_log_err_cs(conf, "Boolean is false: forcing error!");
+	inst->mrb = mrb_open();
+	if (!inst->mrb) {
+		ERROR("mruby initialization failed");
 		return -1;
 	}
-
-	paircompare_register_byname("Example-Paircmp", fr_dict_attr_by_num(NULL, 0, PW_USER_NAME), false,
-				    rlm_example_cmp, inst);
 
 	return 0;
 }
@@ -176,9 +158,12 @@ static rlm_rcode_t CC_HINT(nonnull) mod_checksimul(UNUSED void *instance, UNUSED
  *	Only free memory we allocated.  The strings allocated via
  *	cf_section_parse() do not need to be freed.
  */
-static int mod_detach(UNUSED void *instance)
+static int mod_detach(void *instance)
 {
-	/* free things here */
+	rlm_mruby_t *inst = instance;
+
+	mrb_close(inst->mrb);
+
 	return 0;
 }
 
@@ -194,9 +179,9 @@ static int mod_detach(UNUSED void *instance)
 extern rad_module_t rlm_example;
 rad_module_t rlm_example = {
 	.magic		= RLM_MODULE_INIT,
-	.name		= "example",
-	.type		= RLM_TYPE_THREAD_SAFE,
-	.inst_size	= sizeof(rlm_example_t),
+	.name		= "mruby",
+	.type		= RLM_TYPE_THREAD_UNSAFE, /* Not sure */
+	.inst_size	= sizeof(rlm_mruby_t),
 	.config		= module_config,
 	.instantiate	= mod_instantiate,
 	.detach		= mod_detach,
