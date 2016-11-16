@@ -16,11 +16,11 @@
 
 /**
  * $Id$
- * @file rlm_example.c
- * @brief Example module code.
+ * @file rlm_mruby.c
+ * @brief Translates requests between the server an an mruby interpreter.
  *
- * @copyright 2013 The FreeRADIUS server project
- * @copyright 2013 your name \<your address\>
+ * @copyright 2016 The FreeRADIUS server project
+ * @copyright 2016 Herwin Weststrate <herwinw@herwinw.nl>
  */
 RCSID("$Id$")
 
@@ -176,8 +176,8 @@ static int mod_detach(void *instance)
  *	The server will then take care of ensuring that the module
  *	is single-threaded.
  */
-extern rad_module_t rlm_example;
-rad_module_t rlm_example = {
+extern rad_module_t rlm_mruby;
+rad_module_t rlm_mruby = {
 	.magic		= RLM_MODULE_INIT,
 	.name		= "mruby",
 	.type		= RLM_TYPE_THREAD_UNSAFE, /* Not sure */
