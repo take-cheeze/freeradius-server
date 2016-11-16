@@ -64,12 +64,28 @@ static const CONF_PARSER module_config[] = {
 static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
+	FILE *f;
+	mrb_value status;
 
 	inst->mrb = mrb_open();
 	if (!inst->mrb) {
 		ERROR("mruby initialization failed");
 		return -1;
 	}
+
+	DEBUG("Loading file %s...", inst->filename);
+	f = fopen(inst->filename, "r");
+	if (!f) {
+		ERROR("Opening file failed");
+		return -1;
+	}
+
+	status = mrb_load_file(inst->mrb, f);
+	if (mrb_undef_p(status)) {
+		ERROR("Parsing file failed");
+		return -1;
+	}
+	fclose(f);
 
 	return 0;
 }
