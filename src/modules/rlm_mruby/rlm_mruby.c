@@ -87,41 +87,49 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	}
 	fclose(f);
 
+	status = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "instantiate", 0);
+	if (mrb_undef_p(status)) {
+		ERROR("Running instantiate failed");
+		return -1;
+	}
+
 	return 0;
 }
 
-/*
- *	Find the named user in this modules database.  Create the set
- *	of attribute-value pairs to check and reply with for this user
- *	from the database. The authentication code only needs to check
- *	the password, the rest is done here.
- */
-static rlm_rcode_t CC_HINT(nonnull) mod_authorize(UNUSED void *instance, UNUSED void *thread, REQUEST *request)
+#define BUF_SIZE 1024
+static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, UNUSED REQUEST *request)
 {
-	VALUE_PAIR *state;
+	mrb_value res;
+	VALUE_PAIR *vp;
+	vp_cursor_t cursor;
+	char buf[BUF_SIZE]; /* same size as fr_pair_fprint buffer */
 
-	/*
-	 *  Look for the 'state' attribute.
-	 */
-	state = fr_pair_find_by_num(request->packet->vps, 0, PW_STATE, TAG_ANY);
-	if (state != NULL) {
-		RDEBUG("Found reply to access challenge");
-		return RLM_MODULE_OK;
+	res = mrb_ary_new(inst->mrb);
+	for (vp = fr_cursor_init(&cursor, &request->packet->vps); vp; vp = fr_cursor_next(&cursor)) {
+		mrb_value tmp, key, val;
+		tmp = mrb_ary_new_capa(inst->mrb, 2);
+		if (vp->da->flags.has_tag) {
+			snprintf(buf, BUF_SIZE, "%s:%d", vp->da->name, vp->tag);
+			key = mrb_str_new_cstr(inst->mrb, buf);
+		} else {
+			key = mrb_str_new_cstr(inst->mrb, vp->da->name);
+		}
+		fr_pair_value_snprint(buf, sizeof(buf), vp, '\0');
+		val = mrb_str_new_cstr(inst->mrb, buf);
+		mrb_ary_push(inst->mrb, tmp, key);
+		mrb_ary_push(inst->mrb, tmp, val);
+
+		mrb_ary_push(inst->mrb, res, tmp);
 	}
 
-	/*
-	 *  Create the challenge, and add it to the reply.
-	 */
-	pair_make_reply("Reply-Message", "This is a challenge", T_OP_EQ);
-	pair_make_reply("State", "0", T_OP_EQ);
+	return res;
+}
 
-	/*
-	 *  Mark the packet as an Access-Challenge packet.
-	 *
-	 *  The server will take care of sending it to the user.
-	 */
-	request->reply->code = PW_CODE_ACCESS_CHALLENGE;
-	RDEBUG("Sending Access-Challenge");
+static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
+{
+	rlm_mruby_t *inst = instance;
+
+	mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request_to_ary(inst, request));
 
 	return RLM_MODULE_HANDLED;
 }
