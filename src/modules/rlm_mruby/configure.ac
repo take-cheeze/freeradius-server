@@ -86,13 +86,19 @@ if test x$with_[]modname != xno; then
 	smart_try_dir="$mruby_lib_dir /usr/lib"
 	FR_SMART_CHECK_LIB(mruby, mrb_run)
 	LIBS=$old_LIBS
-
 	if test "x$ac_cv_lib_mruby_mrb_run" = "xyes"; then
-		mod_ldflags="$SMART_LIBS"
-		#mod_ldflags="$SMART_LIBS -lm"
+		mod_ldflags="${SMART_LIBS}"
 	else
 		AC_MSG_WARN([mruby libraries not found. Use --with-mruby-lib-dir=<path>.])
 		fail="$fail libmruby"
+	fi
+
+	FR_SMART_CHECK_LIB(m, fmod)
+	if test "x$ac_cv_lib_m_fmod" = "xyes"; then
+		mod_ldflags="${mod_ldflags} ${SMART_LIBS}"
+	else
+		AC_MSG_WARN([m library not found.])
+		fail="$fail libm"
 	fi
 	
 	targetname=modname
@@ -111,7 +117,6 @@ if test x"$fail" != x""; then
 	fi
 fi
 
-mod_ldflags="${mod_ldflags} ${SMART_LIBS}"
 mod_cflags="${SMART_CPPFLAGS}"
 
 AC_SUBST(mod_cflags)
