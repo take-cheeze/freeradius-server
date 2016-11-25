@@ -219,6 +219,13 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 		case MRB_TT_FIXNUM:
 			rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, mruby_result);
 			break;
+		case MRB_TT_ARRAY:
+			/* Must have exactly three items */
+			if (RARRAY_LEN(mruby_result) != 3) {
+				ERROR("Expected array to have exactly three values, got %i instead", RARRAY_LEN(mruby_result));
+				rcode = RLM_MODULE_FAIL;
+			}
+			/* For now: don't break, just continue with the unsupported value */
 		default:
 			/* Invalid return type */
 			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
