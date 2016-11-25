@@ -166,7 +166,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 }
 
 #define BUF_SIZE 1024
-static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, UNUSED REQUEST *request)
+static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
 {
 	mrb_value res;
 	VALUE_PAIR *vp;
