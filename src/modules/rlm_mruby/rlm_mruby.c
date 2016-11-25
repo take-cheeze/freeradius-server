@@ -95,8 +95,8 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	/* Define the radlog method */
 	mrb_define_class_method(inst->mrb, module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
 
-	/* Define the logging constants */
 #define A(x) mrb_define_const(inst->mrb, module, #x, mrb_fixnum_value(x));
+	/* Define the logging constants */
 	A(L_DBG);
 	A(L_WARN);
 	A(L_AUTH);
@@ -109,6 +109,18 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	A(L_DBG_ERR);
 	A(L_DBG_WARN_REQ);
 	A(L_DBG_ERR_REQ);
+
+	/* Define the return value constants */
+	A(RLM_MODULE_REJECT)
+	A(RLM_MODULE_FAIL)
+	A(RLM_MODULE_OK)
+	A(RLM_MODULE_HANDLED)
+	A(RLM_MODULE_INVALID)
+	A(RLM_MODULE_USERLOCK)
+	A(RLM_MODULE_NOTFOUND)
+	A(RLM_MODULE_NOOP)
+	A(RLM_MODULE_UPDATED)
+	A(RLM_MODULE_NUMCODES)
 #undef A
 
 
