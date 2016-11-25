@@ -69,7 +69,7 @@ static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self) {
 }
 
 static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self) {
-	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "request"));
+	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@request"));
 }
 
 /*
@@ -197,8 +197,12 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
 static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
 {
 	rlm_mruby_t *inst = instance;
+	mrb_value mruby_request;
 
-	mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request_to_ary(inst, request));
+	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
+	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
+	/* FIXME: Do something with the return value here */
+	mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request);
 
 	return RLM_MODULE_HANDLED;
 }
