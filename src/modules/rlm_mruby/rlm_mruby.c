@@ -55,6 +55,16 @@ static const CONF_PARSER module_config[] = {
 	CONF_PARSER_TERMINATOR
 };
 
+static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self) {
+	mrb_int level;
+	char *msg = NULL;
+
+	mrb_get_args(mrb, "iz", &level, &msg);
+	radlog(&default_log, level, "rlm_ruby: %s", msg);
+
+	return mrb_nil_value();
+}
+
 /*
  *	Do any per-module initialization that is separate to each
  *	configured instance of the module.  e.g. set up connections
@@ -65,6 +75,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
 	FILE *f;
+	struct RClass *module;
 	mrb_value status;
 
 	inst->mrb = mrb_open();
@@ -72,6 +83,34 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 		ERROR("mruby initialization failed");
 		return -1;
 	}
+
+	/* Define the freeradius module */
+	DEBUG("Creating module %s", inst->module_name);
+	module = mrb_define_module(inst->mrb, inst->module_name);
+	if (!module) {
+		ERROR("Creating module %s failed", inst->module_name);
+		return -1;
+	}
+
+	/* Define the radlog method */
+	mrb_define_class_method(inst->mrb, module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
+
+	/* Define the logging constants */
+#define A(x) mrb_define_const(inst->mrb, module, #x, mrb_fixnum_value(x));
+	A(L_DBG);
+	A(L_WARN);
+	A(L_AUTH);
+	A(L_INFO);
+	A(L_ERR);
+	A(L_PROXY);
+	A(L_WARN);
+	A(L_ACCT);
+	A(L_DBG_WARN);
+	A(L_DBG_ERR);
+	A(L_DBG_WARN_REQ);
+	A(L_DBG_ERR_REQ);
+#undef A
+
 
 	DEBUG("Loading file %s...", inst->filename);
 	f = fopen(inst->filename, "r");
