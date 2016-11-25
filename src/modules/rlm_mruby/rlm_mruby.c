@@ -31,6 +31,7 @@ RCSID("$Id$")
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/array.h>
+#include <mruby/variable.h>
 
 /*
  *	Define a structure for our module configuration.
@@ -63,6 +64,10 @@ static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self) {
 	radlog(&default_log, level, "rlm_ruby: %s", msg);
 
 	return mrb_nil_value();
+}
+
+static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self) {
+	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "request"));
 }
 
 /*
@@ -123,12 +128,16 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	A(RLM_MODULE_NUMCODES)
 #undef A
 
-	/* Define the request object */
+	/* Define the Request class */
 	request = mrb_define_class_under(inst->mrb, module, "Request", inst->mrb->object_class);
 	if (!request) {
 		ERROR("Creating class %s:Request failed", inst->module_name);
 		return -1;
 	}
+
+	/* Add lists to the Request class */
+	/* FIXME: Use attr_reader (if available) */
+	mrb_define_method(inst->mrb, request, "request", mruby_request_request, MRB_ARGS_NONE());
 
 
 	DEBUG("Loading file %s...", inst->filename);
