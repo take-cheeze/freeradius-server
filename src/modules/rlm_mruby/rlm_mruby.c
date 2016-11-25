@@ -31,6 +31,8 @@ RCSID("$Id$")
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/array.h>
+#include <mruby/numeric.h>
+#include <mruby/string.h>
 #include <mruby/variable.h>
 
 /*
@@ -197,15 +199,14 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
 static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
 {
 	rlm_mruby_t *inst = instance;
-	mrb_value mruby_request;
-	rlm_rcode_t rcode = RLM_MODULE_OK;
+	mrb_value mruby_request, mruby_result;
+	rlm_rcode_t rcode;
 
 	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
 	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
-	mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request);
-	/* FIXME: Do something with the return value here
-	 *
-	 * Two options:
+	mruby_result = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request);
+
+	/* Two options for the return value:
 	 * - a fixnum: convert to rlm_rcode_t, and return that
 	 * - an array: this should have exactly three items in it. The first one
 	 *             should be a fixnum, this will once again be converted to
@@ -213,6 +214,17 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 	 *             should be arrays. The items of the first array should be
 	 *             merged into reply, the second array into control.
 	 */
+	switch (mrb_type(mruby_result)) {
+		/* If it is a Fixnum: return that value */
+		case MRB_TT_FIXNUM:
+			rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, mruby_result);
+			break;
+		default:
+			/* Invalid return type */
+			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
+			rcode = RLM_MODULE_FAIL;
+			break;
+	}
 
 
 	return rcode;
