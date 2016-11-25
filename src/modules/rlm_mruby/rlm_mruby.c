@@ -196,6 +196,11 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
 	return res;
 }
 
+static void add_vp_tuple(UNUSED TALLOC_CTX *ctx, UNUSED REQUEST *request, UNUSED VALUE_PAIR **vps, UNUSED mrb_value value, UNUSED char const *function_name) {
+	/* TODO */
+	ERROR("add_vp_tuple is not implemented yet");
+}
+
 static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
 {
 	rlm_mruby_t *inst = instance;
@@ -224,17 +229,23 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 			if (RARRAY_LEN(mruby_result) != 3) {
 				ERROR("Expected array to have exactly three values, got %i instead", RARRAY_LEN(mruby_result));
 				rcode = RLM_MODULE_FAIL;
+			/* First item must be a Fixnum, this will be the return type */
 			} else if (mrb_type(RARRAY_PTR(mruby_result)[0]) != MRB_TT_FIXNUM) {
 				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[0])));
 				rcode = RLM_MODULE_FAIL;
+			/* Second and third items must be Arrays, these will be the updates for reply and control */
 			} else if (mrb_type(RARRAY_PTR(mruby_result)[1]) != MRB_TT_ARRAY) {
 				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[1])));
 				rcode = RLM_MODULE_FAIL;
 			} else if (mrb_type(RARRAY_PTR(mruby_result)[2]) != MRB_TT_ARRAY) {
 				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[2])));
 				rcode = RLM_MODULE_FAIL;
+			} else {
+				add_vp_tuple(request->reply, request, &request->reply->vps, RARRAY_PTR(mruby_result)[1], "authorize");
+				add_vp_tuple(request, request, &request->control, RARRAY_PTR(mruby_result)[2], "authorize");
+				rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, RARRAY_PTR(mruby_result)[0]);
 			}
-			/* For now: don't break, just continue with the unsupported value */
+			break;
 		default:
 			/* Invalid return type */
 			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
