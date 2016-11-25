@@ -75,7 +75,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
 	FILE *f;
-	struct RClass *module;
+	struct RClass *module, *request;
 	mrb_value status;
 
 	inst->mrb = mrb_open();
@@ -122,6 +122,13 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	A(RLM_MODULE_UPDATED)
 	A(RLM_MODULE_NUMCODES)
 #undef A
+
+	/* Define the request object */
+	request = mrb_define_class_under(inst->mrb, module, "Request", inst->mrb->object_class);
+	if (!request) {
+		ERROR("Creating class %s:Request failed", inst->module_name);
+		return -1;
+	}
 
 
 	DEBUG("Loading file %s...", inst->filename);
