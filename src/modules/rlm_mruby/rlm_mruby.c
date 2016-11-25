@@ -45,6 +45,8 @@ typedef struct rlm_mruby_t {
 	char const *module_name;
 
 	mrb_state *mrb;
+
+	struct RClass *mruby_request;
 } rlm_mruby_t;
 
 /*
@@ -80,7 +82,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
 	FILE *f;
-	struct RClass *module, *request;
+	struct RClass *module;
 	mrb_value status;
 
 	inst->mrb = mrb_open();
@@ -129,15 +131,15 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 #undef A
 
 	/* Define the Request class */
-	request = mrb_define_class_under(inst->mrb, module, "Request", inst->mrb->object_class);
-	if (!request) {
+	inst->mruby_request = mrb_define_class_under(inst->mrb, module, "Request", inst->mrb->object_class);
+	if (!inst->mruby_request) {
 		ERROR("Creating class %s:Request failed", inst->module_name);
 		return -1;
 	}
 
 	/* Add lists to the Request class */
 	/* FIXME: Use attr_reader (if available) */
-	mrb_define_method(inst->mrb, request, "request", mruby_request_request, MRB_ARGS_NONE());
+	mrb_define_method(inst->mrb, inst->mruby_request, "request", mruby_request_request, MRB_ARGS_NONE());
 
 
 	DEBUG("Loading file %s...", inst->filename);
