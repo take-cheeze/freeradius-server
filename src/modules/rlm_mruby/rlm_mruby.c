@@ -198,6 +198,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 {
 	rlm_mruby_t *inst = instance;
 	mrb_value mruby_request;
+	rlm_rcode_t rcode = RLM_MODULE_OK;
 
 	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
 	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
@@ -214,7 +215,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 	 */
 
 
-	return RLM_MODULE_HANDLED;
+	return rcode;
 }
 
 /*
