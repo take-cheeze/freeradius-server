@@ -224,6 +224,9 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 			if (RARRAY_LEN(mruby_result) != 3) {
 				ERROR("Expected array to have exactly three values, got %i instead", RARRAY_LEN(mruby_result));
 				rcode = RLM_MODULE_FAIL;
+			} else if (mrb_type(RARRAY_PTR(mruby_result)[0]) != MRB_TT_FIXNUM) {
+				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
+				rcode = RLM_MODULE_FAIL;
 			}
 			/* For now: don't break, just continue with the unsupported value */
 		default:
