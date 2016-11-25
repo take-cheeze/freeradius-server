@@ -201,8 +201,18 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 
 	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
 	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
-	/* FIXME: Do something with the return value here */
 	mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request);
+	/* FIXME: Do something with the return value here
+	 *
+	 * Two options:
+	 * - a fixnum: convert to rlm_rcode_t, and return that
+	 * - an array: this should have exactly three items in it. The first one
+	 *             should be a fixnum, this will once again be converted to
+	 *             rlm_rcode_t and eventually returned. The other two items
+	 *             should be arrays. The items of the first array should be
+	 *             merged into reply, the second array into control.
+	 */
+
 
 	return RLM_MODULE_HANDLED;
 }
