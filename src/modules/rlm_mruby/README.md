@@ -19,3 +19,4 @@ There are a lot of possible improvements here:
 * Currently every value needs to be a String, we should be able to stringify the input, so we can use `1500` as MTU instead of `"1500"`
 * Add support for deleting values, `rlm_python` can serve as an example
 * Add methods on the request object to modify the lists. The current return value is a bit ridiculous, a call like `request.config.add_vp('Cleartext-Password', 'hello')` looks a lot cleaner
+* Add a xlat callback, similar to `rlm_perl` `radius_xlat`
