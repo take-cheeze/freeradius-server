@@ -1,7 +1,6 @@
 #This is example radius.rb script
 def instantiate()
     Radiusd.radlog(Radiusd::L_DBG, "[mruby]Running ruby instantiate")
-    puts "[mruby]Running mruby instantiate"
     return Radiusd::RLM_MODULE_OK
 end
 def authenticate(arg)
@@ -19,6 +18,5 @@ def authorize(arg)
 end
 def accounting(arg)
     Radiusd.radlog(Radiusd::L_DBG, "[mruby]Running ruby accounting")
-    p arg
     return Radiusd::RLM_MODULE_NOOP
 end
