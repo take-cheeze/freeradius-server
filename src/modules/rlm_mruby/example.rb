@@ -13,9 +13,8 @@ def authorize(arg)
     Radiusd.radlog(Radiusd::L_WARN, "Authorize: #{arg.inspect}(#{arg.class})")
     Radiusd.radlog(Radiusd::L_WARN, "Authorize: #{arg.request.inspect}(#{arg.request.class})")
 
-    #Here we return Cleartext-Password, which could have been retrieved from DB.
     reply = [["Framed-MTU", 1500]]
-    control = [["Cleartext-Password", "hello"]]
+    control = [["Cleartext-Password", "hello"], ["Tmp-String-0", "!*", "ANY"]]
     return [Radiusd::RLM_MODULE_UPDATED, reply, control]
 end
 def accounting(arg)
