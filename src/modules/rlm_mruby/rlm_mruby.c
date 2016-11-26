@@ -211,12 +211,12 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 			mrb_value key, val;
 			key = mrb_ary_entry(tuple, 0);
 			val = mrb_ary_entry(tuple, 1);
-			if (mrb_type(key) != MRB_TT_STRING || mrb_type(val) != MRB_TT_STRING) {
-				REDEBUG("add_vp_tuple, %s: tuple element %i must be (string, string)", function_name, i);
+			if (mrb_type(key) != MRB_TT_STRING) {
+				REDEBUG("add_vp_tuple, %s: tuple element %i must have a string as first element", function_name, i);
 			} else {
 				char const *ckey, *cval;
 				ckey = mrb_str_to_cstr(mrb, key);
-				cval = mrb_str_to_cstr(mrb, val);
+				cval = mrb_str_to_cstr(mrb, mrb_obj_as_string(mrb, val));
 				if (ckey == NULL || cval == NULL) {
 					REDEBUG("%s: string conv failed", function_name);
 				} else {
