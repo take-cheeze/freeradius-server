@@ -48,6 +48,7 @@ typedef struct rlm_mruby_t {
 
 	mrb_state *mrb;
 
+	struct RClass *mruby_module;
 	struct RClass *mruby_request;
 } rlm_mruby_t;
 
@@ -84,7 +85,6 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
 	FILE *f;
-	struct RClass *module;
 	mrb_value status;
 
 	inst->mrb = mrb_open();
@@ -95,16 +95,16 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 
 	/* Define the freeradius module */
 	DEBUG("Creating module %s", inst->module_name);
-	module = mrb_define_module(inst->mrb, inst->module_name);
-	if (!module) {
+	inst->mruby_module = mrb_define_module(inst->mrb, inst->module_name);
+	if (!inst->mruby_module) {
 		ERROR("Creating module %s failed", inst->module_name);
 		return -1;
 	}
 
 	/* Define the radlog method */
-	mrb_define_class_method(inst->mrb, module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
+	mrb_define_class_method(inst->mrb, inst->mruby_module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
 
-#define A(x) mrb_define_const(inst->mrb, module, #x, mrb_fixnum_value(x));
+#define A(x) mrb_define_const(inst->mrb, inst->mruby_module, #x, mrb_fixnum_value(x));
 	/* Define the logging constants */
 	A(L_DBG);
 	A(L_WARN);
@@ -133,7 +133,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 #undef A
 
 	/* Define the Request class */
-	inst->mruby_request = mrb_define_class_under(inst->mrb, module, "Request", inst->mrb->object_class);
+	inst->mruby_request = mrb_define_class_under(inst->mrb, inst->mruby_module, "Request", inst->mrb->object_class);
 	if (!inst->mruby_request) {
 		ERROR("Creating class %s:Request failed", inst->module_name);
 		return -1;
