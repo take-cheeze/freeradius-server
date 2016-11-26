@@ -255,7 +255,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 	switch (mrb_type(mruby_result)) {
 		/* If it is a Fixnum: return that value */
 		case MRB_TT_FIXNUM:
-			rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, mruby_result);
+			rcode = (rlm_rcode_t)mrb_int(inst->mrb, mruby_result);
 			break;
 		case MRB_TT_ARRAY:
 			/* Must have exactly three items */
@@ -276,7 +276,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 			} else {
 				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, RARRAY_PTR(mruby_result)[1], "authorize");
 				add_vp_tuple(request, request, &request->control, inst->mrb, RARRAY_PTR(mruby_result)[2], "authorize");
-				rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, RARRAY_PTR(mruby_result)[0]);
+				rcode = (rlm_rcode_t)mrb_int(inst->mrb, RARRAY_PTR(mruby_result)[0]);
 			}
 			break;
 		default:
