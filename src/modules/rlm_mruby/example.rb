@@ -10,10 +10,13 @@ def authenticate(arg)
 end
 def authorize(arg)
     Radiusd.radlog(Radiusd::L_ERR, "[mruby]Running ruby authorize")
-		Radiusd.radlog(Radiusd::L_WARN, "Authorize: #{arg.inspect}(#{arg.class})")
+    Radiusd.radlog(Radiusd::L_WARN, "Authorize: #{arg.inspect}(#{arg.class})")
     Radiusd.radlog(Radiusd::L_WARN, "Authorize: #{arg.request.inspect}(#{arg.request.class})")
+
     #Here we return Cleartext-Password, which could have been retrieved from DB.
-    return [Radiusd::RLM_MODULE_UPDATED, [],[["Cleartext-Password", "hello"]]]
+    reply = [["Framed-MTU", "1500"]]
+    control = [["Cleartext-Password", "hello"]]
+    return [Radiusd::RLM_MODULE_UPDATED, reply, control]
 end
 def accounting(arg)
     Radiusd.radlog(Radiusd::L_DBG, "[mruby]Running ruby accounting")
