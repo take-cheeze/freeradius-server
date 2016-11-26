@@ -168,7 +168,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 }
 
 #define BUF_SIZE 1024
-static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
+static mrb_value mruby_request_to_ary(rlm_mruby_t const *inst, REQUEST *request)
 {
 	mrb_value res;
 	VALUE_PAIR *vp;
@@ -234,15 +234,14 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 	}
 }
 
-static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
+static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const *inst, char const *function_name)
 {
-	rlm_mruby_t *inst = instance;
 	mrb_value mruby_request, mruby_result;
 	rlm_rcode_t rcode;
 
 	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
 	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
-	mruby_result = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "authorize", 1, mruby_request);
+	mruby_result = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), function_name, 1, mruby_request);
 
 	/* Two options for the return value:
 	 * - a fixnum: convert to rlm_rcode_t, and return that
@@ -274,8 +273,8 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 2))));
 				rcode = RLM_MODULE_FAIL;
 			} else {
-				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), "authorize");
-				add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), "authorize");
+				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), function_name);
+				add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), function_name);
 				rcode = (rlm_rcode_t)mrb_int(inst->mrb, mrb_ary_entry(mruby_result, 0));
 			}
 			break;
@@ -290,35 +289,29 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 	return rcode;
 }
 
-/*
- *	Authenticate the user with the given password.
- */
-static rlm_rcode_t CC_HINT(nonnull) mod_authenticate(UNUSED void *instance, UNUSED void *thread, UNUSED REQUEST *request)
-{
-	return RLM_MODULE_OK;
-}
 
+#define RLM_MRUBY_FUNC(foo) static rlm_rcode_t CC_HINT(nonnull) mod_##foo(void *instance, UNUSED void *thread, REQUEST *request) \
+	{ \
+		return do_mruby(request,	\
+			       (rlm_mruby_t const *)instance, \
+			       #foo); \
+	}
+
+RLM_MRUBY_FUNC(authorize)
+RLM_MRUBY_FUNC(authenticate)
+RLM_MRUBY_FUNC(post_auth)
 #ifdef WITH_ACCOUNTING
-/*
- *	Massage the request before recording it or proxying it
- */
-static rlm_rcode_t CC_HINT(nonnull) mod_preacct(UNUSED void *instance, UNUSED void *thread, UNUSED REQUEST *request)
-{
-	return RLM_MODULE_OK;
-}
-
-/*
- *	Write accounting information to this modules database.
- */
-static rlm_rcode_t CC_HINT(nonnull) mod_accounting(UNUSED void *instance, UNUSED void *thread, UNUSED REQUEST *request)
-{
-	return RLM_MODULE_OK;
-}
-
-static rlm_rcode_t CC_HINT(nonnull) mod_session(UNUSED void *instance, UNUSED void *thread, UNUSED REQUEST *request)
-{
-	return RLM_MODULE_OK;
-}
+RLM_MRUBY_FUNC(preacct)
+RLM_MRUBY_FUNC(accounting)
+RLM_MRUBY_FUNC(session)
+#endif
+#ifdef WITH_PROXY
+RLM_MRUBY_FUNC(pre_proxy)
+RLM_MRUBY_FUNC(post_proxy)
+#endif
+#ifdef WITH_COA
+RLM_MRUBY_FUNC(recv_coa)
+RLM_MRUBY_FUNC(send_coa)
 #endif
 
 
@@ -356,10 +349,19 @@ rad_module_t rlm_mruby = {
 	.methods = {
 		[MOD_AUTHENTICATE]	= mod_authenticate,
 		[MOD_AUTHORIZE]		= mod_authorize,
+		[MOD_POST_AUTH]		= mod_post_auth,
 #ifdef WITH_ACCOUNTING
 		[MOD_PREACCT]		= mod_preacct,
 		[MOD_ACCOUNTING]	= mod_accounting,
-		[MOD_SESSION]		= mod_session
+		[MOD_SESSION]		= mod_session,
+#endif
+#ifdef WITH_PROXY
+		[MOD_PRE_PROXY]		= mod_pre_proxy,
+		[MOD_POST_PROXY]	= mod_post_proxy,
+#endif
+#ifdef WITH_COA
+		[MOD_RECV_COA]		= mod_recv_coa,
+		[MOD_SEND_COA]		= mod_send_coa,
 #endif
 	},
 };
