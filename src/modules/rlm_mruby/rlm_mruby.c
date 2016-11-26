@@ -196,9 +196,42 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t *inst, REQUEST *request)
 	return res;
 }
 
-static void add_vp_tuple(UNUSED TALLOC_CTX *ctx, UNUSED REQUEST *request, UNUSED VALUE_PAIR **vps, UNUSED mrb_value value, UNUSED char const *function_name) {
-	/* TODO */
-	ERROR("add_vp_tuple is not implemented yet");
+static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mrb_state *mrb, mrb_value value, char const *function_name) {
+	int i;
+
+	for (i = 0; i < RARRAY_LEN(value); i++) {
+		mrb_value tuple = RARRAY_PTR(value)[i];
+
+		/* This tuple should be an array of length 2 */
+		if (mrb_type(tuple) != MRB_TT_ARRAY) {
+			REDEBUG("add_vp_tuple, %s: non-array passed at index %i", function_name, i);
+		} else if (RARRAY_LEN(tuple) != 2) {
+			REDEBUG("add_vp_tuple, %s: array with incorrect length passed at index %i, expected 2, got %i", function_name, i, RARRAY_LEN(tuple));
+		} else {
+			mrb_value key, val;
+			key = RARRAY_PTR(tuple)[0];
+			val = RARRAY_PTR(tuple)[1];
+			if (mrb_type(key) != MRB_TT_STRING || mrb_type(val) != MRB_TT_STRING) {
+				REDEBUG("add_vp_tuple, %s: tuple element %i must be (string, string)", function_name, i);
+			} else {
+				char const *ckey, *cval;
+				ckey = mrb_str_to_cstr(mrb, key);
+				cval = mrb_str_to_cstr(mrb, val);
+				if (ckey == NULL || cval == NULL) {
+					REDEBUG("%s: string conv failed", function_name);
+				} else {
+					VALUE_PAIR *vp;
+					DEBUG("%s: %s = %s", function_name, ckey, cval);
+					vp = fr_pair_make(ctx, vps, ckey, cval, T_OP_EQ); /* FIXME: Support for other operators, see rlm_python */
+					if (vp == NULL) {
+						REDEBUG("%s: %s = %s failed", function_name, ckey, cval);
+					} else {
+						DEBUG("%s: %s = %s OK", function_name, ckey, cval);
+					}
+				}
+			}
+		}
+	}
 }
 
 static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *thread, REQUEST *request)
@@ -241,8 +274,8 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[2])));
 				rcode = RLM_MODULE_FAIL;
 			} else {
-				add_vp_tuple(request->reply, request, &request->reply->vps, RARRAY_PTR(mruby_result)[1], "authorize");
-				add_vp_tuple(request, request, &request->control, RARRAY_PTR(mruby_result)[2], "authorize");
+				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, RARRAY_PTR(mruby_result)[1], "authorize");
+				add_vp_tuple(request, request, &request->control, inst->mrb, RARRAY_PTR(mruby_result)[2], "authorize");
 				rcode = (rlm_rcode_t)mrb_to_flo(inst->mrb, RARRAY_PTR(mruby_result)[0]);
 			}
 			break;
