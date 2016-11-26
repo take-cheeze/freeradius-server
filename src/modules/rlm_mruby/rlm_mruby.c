@@ -205,8 +205,8 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 		/* This tuple should be an array of length 2 */
 		if (mrb_type(tuple) != MRB_TT_ARRAY) {
 			REDEBUG("add_vp_tuple, %s: non-array passed at index %i", function_name, i);
-		} else if (RARRAY_LEN(tuple) != 2) {
-			REDEBUG("add_vp_tuple, %s: array with incorrect length passed at index %i, expected 2, got %i", function_name, i, RARRAY_LEN(tuple));
+		} else if (RARRAY_LEN(tuple) != 2 && RARRAY_LEN(tuple) != 3) {
+			REDEBUG("add_vp_tuple, %s: array with incorrect length passed at index %i, expected 2 or 3, got %i", function_name, i, RARRAY_LEN(tuple));
 		} else {
 			mrb_value key, val;
 			key = mrb_ary_entry(tuple, 0);
@@ -221,12 +221,35 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 					REDEBUG("%s: string conv failed", function_name);
 				} else {
 					VALUE_PAIR *vp;
-					DEBUG("%s: %s = %s", function_name, ckey, cval);
-					vp = fr_pair_make(ctx, vps, ckey, cval, T_OP_EQ); /* FIXME: Support for other operators, see rlm_python */
-					if (vp == NULL) {
-						REDEBUG("%s: %s = %s failed", function_name, ckey, cval);
+					vp_tmpl_t dst;
+					FR_TOKEN op = T_OP_EQ;
+					memset(&dst, 0, sizeof(dst));
+					if (RARRAY_LEN(tuple) == 3) {
+						if (mrb_type(mrb_ary_entry(tuple, 1)) != MRB_TT_STRING) {
+							REDEBUG("Invalid type for operator, expected string");
+						} else {
+							char const *cop = mrb_str_to_cstr(mrb, mrb_ary_entry(tuple, 1));
+							if (!(op = fr_str2int(fr_tokens_table, cop, 0))) {
+								REDEBUG("Invalid operator: %s, falling back to =", cop);
+								op = T_OP_EQ;
+							}
+						}
+					}
+					DEBUG("%s: %s %s %s", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+					if (tmpl_from_attr_str(&dst, ckey, REQUEST_CURRENT, PAIR_LIST_REPLY, false, false) <= 0) {
+						ERROR("Failed to find attribute %s", ckey);
+					} else if (radius_request(&request, dst.tmpl_request) < 0) {
+						ERROR("Attribute name %s refers to outer request but not in a tunnel, skipping...", ckey);
+					} else if (!(vp = fr_pair_afrom_da(ctx, dst.tmpl_da))) {
+						ERROR("Failed to create attribute %s", ckey);
 					} else {
-						DEBUG("%s: %s = %s OK", function_name, ckey, cval);
+						vp->op = op;
+						if (fr_pair_value_from_str(vp, cval, -1) < 0) {
+							REDEBUG("%s: %s %s %s failed", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+						} else {
+							DEBUG("%s: %s %s %s OK", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+						}
+						radius_pairmove(request, vps, vp, false);
 					}
 				}
 			}
