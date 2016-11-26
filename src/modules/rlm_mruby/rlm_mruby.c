@@ -200,7 +200,7 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 	int i;
 
 	for (i = 0; i < RARRAY_LEN(value); i++) {
-		mrb_value tuple = RARRAY_PTR(value)[i];
+		mrb_value tuple = mrb_ary_entry(value, i);
 
 		/* This tuple should be an array of length 2 */
 		if (mrb_type(tuple) != MRB_TT_ARRAY) {
@@ -209,8 +209,8 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 			REDEBUG("add_vp_tuple, %s: array with incorrect length passed at index %i, expected 2, got %i", function_name, i, RARRAY_LEN(tuple));
 		} else {
 			mrb_value key, val;
-			key = RARRAY_PTR(tuple)[0];
-			val = RARRAY_PTR(tuple)[1];
+			key = mrb_ary_entry(tuple, 0);
+			val = mrb_ary_entry(tuple, 1);
 			if (mrb_type(key) != MRB_TT_STRING || mrb_type(val) != MRB_TT_STRING) {
 				REDEBUG("add_vp_tuple, %s: tuple element %i must be (string, string)", function_name, i);
 			} else {
@@ -263,20 +263,20 @@ static rlm_rcode_t CC_HINT(nonnull) mod_authorize(void *instance, UNUSED void *t
 				ERROR("Expected array to have exactly three values, got %i instead", RARRAY_LEN(mruby_result));
 				rcode = RLM_MODULE_FAIL;
 			/* First item must be a Fixnum, this will be the return type */
-			} else if (mrb_type(RARRAY_PTR(mruby_result)[0]) != MRB_TT_FIXNUM) {
-				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[0])));
+			} else if (mrb_type(mrb_ary_entry(mruby_result, 0)) != MRB_TT_FIXNUM) {
+				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 0))));
 				rcode = RLM_MODULE_FAIL;
 			/* Second and third items must be Arrays, these will be the updates for reply and control */
-			} else if (mrb_type(RARRAY_PTR(mruby_result)[1]) != MRB_TT_ARRAY) {
-				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[1])));
+			} else if (mrb_type(mrb_ary_entry(mruby_result, 1)) != MRB_TT_ARRAY) {
+				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 1))));
 				rcode = RLM_MODULE_FAIL;
-			} else if (mrb_type(RARRAY_PTR(mruby_result)[2]) != MRB_TT_ARRAY) {
-				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, RARRAY_PTR(mruby_result)[2])));
+			} else if (mrb_type(mrb_ary_entry(mruby_result, 2)) != MRB_TT_ARRAY) {
+				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 2))));
 				rcode = RLM_MODULE_FAIL;
 			} else {
-				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, RARRAY_PTR(mruby_result)[1], "authorize");
-				add_vp_tuple(request, request, &request->control, inst->mrb, RARRAY_PTR(mruby_result)[2], "authorize");
-				rcode = (rlm_rcode_t)mrb_int(inst->mrb, RARRAY_PTR(mruby_result)[0]);
+				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), "authorize");
+				add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), "authorize");
+				rcode = (rlm_rcode_t)mrb_int(inst->mrb, mrb_ary_entry(mruby_result, 0));
 			}
 			break;
 		default:
