@@ -210,7 +210,7 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 		} else {
 			mrb_value key, val;
 			key = mrb_ary_entry(tuple, 0);
-			val = mrb_ary_entry(tuple, 1);
+			val = mrb_ary_entry(tuple, -1);
 			if (mrb_type(key) != MRB_TT_STRING) {
 				REDEBUG("add_vp_tuple, %s: tuple element %i must have a string as first element", function_name, i);
 			} else {
