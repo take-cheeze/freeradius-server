@@ -260,7 +260,6 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const *inst, char const *function_name)
 {
 	mrb_value mruby_request, mruby_result;
-	rlm_rcode_t rcode;
 
 	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
 	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
@@ -277,39 +276,40 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 	switch (mrb_type(mruby_result)) {
 		/* If it is a Fixnum: return that value */
 		case MRB_TT_FIXNUM:
-			rcode = (rlm_rcode_t)mrb_int(inst->mrb, mruby_result);
+			return (rlm_rcode_t)mrb_int(inst->mrb, mruby_result);
 			break;
 		case MRB_TT_ARRAY:
 			/* Must have exactly three items */
 			if (RARRAY_LEN(mruby_result) != 3) {
 				ERROR("Expected array to have exactly three values, got %i instead", RARRAY_LEN(mruby_result));
-				rcode = RLM_MODULE_FAIL;
+				return RLM_MODULE_FAIL;
+			}
+
 			/* First item must be a Fixnum, this will be the return type */
-			} else if (mrb_type(mrb_ary_entry(mruby_result, 0)) != MRB_TT_FIXNUM) {
+			if (mrb_type(mrb_ary_entry(mruby_result, 0)) != MRB_TT_FIXNUM) {
 				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 0))));
-				rcode = RLM_MODULE_FAIL;
+				return RLM_MODULE_FAIL;
+			}
+
 			/* Second and third items must be Arrays, these will be the updates for reply and control */
-			} else if (mrb_type(mrb_ary_entry(mruby_result, 1)) != MRB_TT_ARRAY) {
+			if (mrb_type(mrb_ary_entry(mruby_result, 1)) != MRB_TT_ARRAY) {
 				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 1))));
-				rcode = RLM_MODULE_FAIL;
+				return  RLM_MODULE_FAIL;
 			} else if (mrb_type(mrb_ary_entry(mruby_result, 2)) != MRB_TT_ARRAY) {
 				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 2))));
-				rcode = RLM_MODULE_FAIL;
-			} else {
-				add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), function_name);
-				add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), function_name);
-				rcode = (rlm_rcode_t)mrb_int(inst->mrb, mrb_ary_entry(mruby_result, 0));
+				return RLM_MODULE_FAIL;
 			}
+
+			add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), function_name);
+			add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), function_name);
+			return (rlm_rcode_t)mrb_int(inst->mrb, mrb_ary_entry(mruby_result, 0));
 			break;
 		default:
 			/* Invalid return type */
 			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
-			rcode = RLM_MODULE_FAIL;
+			return RLM_MODULE_FAIL;
 			break;
 	}
-
-
-	return rcode;
 }
 
 
