@@ -258,7 +258,7 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 	}
 }
 
-static void mruby_set_vps(mrb_state *mrb, mrb_value mruby_request, char const *name, VALUE_PAIR **vps)
+static inline void mruby_set_vps(mrb_state *mrb, mrb_value mruby_request, char const *name, VALUE_PAIR **vps)
 {
 	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, name), mruby_vps_to_ary(mrb, vps));
 }
