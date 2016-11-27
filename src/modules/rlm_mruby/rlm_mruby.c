@@ -259,20 +259,26 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 	}
 }
 
+static void mruby_set_vps(rlm_mruby_t const *inst, mrb_value mruby_request, char const *name, VALUE_PAIR **vps)
+{
+	mrb_state *mrb = inst->mrb;
+	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, name), mruby_vps_to_ary(inst, vps));
+}
+
 static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const *inst, char const *function_name)
 {
 	mrb_state *mrb = inst->mrb;
 	mrb_value mruby_request, mruby_result;
 
 	mruby_request = mrb_obj_new(mrb, inst->mruby_request, 0, NULL);
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@request"), mruby_vps_to_ary(inst, &request->packet->vps));
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@reply"), mruby_vps_to_ary(inst, &request->reply->vps));
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@control"), mruby_vps_to_ary(inst, &request->control));
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@session_state"), mruby_vps_to_ary(inst, &request->state));
+	mruby_set_vps(inst, mruby_request, "@request", &request->packet->vps);
+	mruby_set_vps(inst, mruby_request, "@reply", &request->reply->vps);
+	mruby_set_vps(inst, mruby_request, "@control", &request->control);
+	mruby_set_vps(inst, mruby_request, "@session_state", &request->state);
 #ifdef WITH_PROXY
 	if (request->proxy) {
-		mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@proxy_request"), mruby_vps_to_ary(inst, &request->proxy->packet->vps));
-		mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@proxy_reply"), mruby_vps_to_ary(inst, &request->proxy->reply->vps));
+		mruby_set_vps(inst, mruby_request, "@proxy_request", &request->proxy->packet->vps);
+		mruby_set_vps(inst, mruby_request, "@proxy_reply", &request->proxy->reply->vps);
 	}
 #endif
 	mruby_result = mrb_funcall(mrb, mrb_top_self(mrb), function_name, 1, mruby_request);
