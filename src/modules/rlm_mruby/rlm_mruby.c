@@ -74,6 +74,19 @@ static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self) {
 	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@request"));
 }
 
+static struct RClass *mruby_request_class(mrb_state *mrb, struct RClass *parent)
+{
+	struct RClass *request;
+
+	MEM(request = mrb_define_class_under(mrb, parent, "Request", mrb->object_class));
+
+	/* Add lists to the Request class */
+	/* FIXME: Use attr_reader (if available) */
+	mrb_define_method(mrb, request, "request", mruby_request_request, MRB_ARGS_NONE());
+
+	return request;
+}
+
 /*
  *	Do any per-module initialization that is separate to each
  *	configured instance of the module.  e.g. set up connections
@@ -134,16 +147,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 #undef A
 
 	/* Define the Request class */
-	inst->mruby_request = mrb_define_class_under(mrb, mruby_module, "Request", mrb->object_class);
-	if (!inst->mruby_request) {
-		ERROR("Creating class %s:Request failed", inst->module_name);
-		return -1;
-	}
-
-	/* Add lists to the Request class */
-	/* FIXME: Use attr_reader (if available) */
-	mrb_define_method(mrb, inst->mruby_request, "request", mruby_request_request, MRB_ARGS_NONE());
-
+	inst->mruby_request = mruby_request_class(mrb, mruby_module);
 
 	DEBUG("Loading file %s...", inst->filename);
 	f = fopen(inst->filename, "r");
