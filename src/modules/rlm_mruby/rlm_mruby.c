@@ -60,7 +60,8 @@ static const CONF_PARSER module_config[] = {
 	CONF_PARSER_TERMINATOR
 };
 
-static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self) {
+static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self)
+{
 	mrb_int level;
 	char *msg = NULL;
 
@@ -70,7 +71,8 @@ static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self) {
 	return mrb_nil_value();
 }
 
-static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self) {
+static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self)
+{
 	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@request"));
 }
 
@@ -202,7 +204,8 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t const *inst, REQUEST *request)
 	return res;
 }
 
-static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mrb_state *mrb, mrb_value value, char const *function_name) {
+static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mrb_state *mrb, mrb_value value, char const *function_name)
+{
 	int i;
 
 	for (i = 0; i < RARRAY_LEN(value); i++) {
