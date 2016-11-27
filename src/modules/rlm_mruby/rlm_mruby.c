@@ -152,7 +152,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 }
 
 #define BUF_SIZE 1024
-static mrb_value mruby_request_to_ary(rlm_mruby_t const *inst, REQUEST *request)
+static mrb_value mruby_vps_to_ary(rlm_mruby_t const *inst, VALUE_PAIR **vps)
 {
 	mrb_state *mrb = inst->mrb;
 	mrb_value res;
@@ -161,7 +161,7 @@ static mrb_value mruby_request_to_ary(rlm_mruby_t const *inst, REQUEST *request)
 	char buf[BUF_SIZE]; /* same size as fr_pair_fprint buffer */
 
 	res = mrb_ary_new(mrb);
-	for (vp = fr_cursor_init(&cursor, &request->packet->vps); vp; vp = fr_cursor_next(&cursor)) {
+	for (vp = fr_cursor_init(&cursor, vps); vp; vp = fr_cursor_next(&cursor)) {
 		mrb_value tmp, key, val;
 		tmp = mrb_ary_new_capa(mrb, 2);
 		if (vp->da->flags.has_tag) {
@@ -265,7 +265,7 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 	mrb_value mruby_request, mruby_result;
 
 	mruby_request = mrb_obj_new(mrb, inst->mruby_request, 0, NULL);
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@request"), mruby_request_to_ary(inst, request));
+	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@request"), mruby_vps_to_ary(inst, &request->packet->vps));
 	mruby_result = mrb_funcall(mrb, mrb_top_self(mrb), function_name, 1, mruby_request);
 
 	/* Two options for the return value:
