@@ -19,8 +19,8 @@
  * @file rlm_mruby.c
  * @brief Translates requests between the server an an mruby interpreter.
  *
+ * @copyright 2016 Herwin Weststrate <freeradius@herwinw.nl>
  * @copyright 2016 The FreeRADIUS server project
- * @copyright 2016 Herwin Weststrate <herwinw@herwinw.nl>
  */
 RCSID("$Id$")
 
