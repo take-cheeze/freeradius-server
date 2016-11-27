@@ -11,6 +11,7 @@ Allows the server to call a persistent, embedded mRuby script.
 There are a lot of possible improvements here:
 
 * Restructure the code, the current status is mainly a PoC
+* Allow nested module as name (as in: `Module1::Module2::Radiusd`)
 * The methods have to be defined in the global namespace, define them on the module instead. I can't really find how to do this in mruby
   * Maybe better: define them as instance methods instead of module/class methods, which would rid us of the argument completely.
 * Add other value lists than just request. We have the framework to do so
