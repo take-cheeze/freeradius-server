@@ -16,6 +16,10 @@ def authorize(arg)
     control = [["Cleartext-Password", "hello"], ["Tmp-String-0", "!*", "ANY"]]
     return [Radiusd::RLM_MODULE_UPDATED, reply, control]
 end
+def post_auth(arg)
+    Radiusd.radlog(Radiusd::L_DBG, "[mruby]Running ruby post_auth")
+    return Radiusd::RLM_MODULE_NOOP
+end
 def accounting(arg)
     Radiusd.radlog(Radiusd::L_DBG, "[mruby]Running ruby accounting")
     return Radiusd::RLM_MODULE_NOOP
