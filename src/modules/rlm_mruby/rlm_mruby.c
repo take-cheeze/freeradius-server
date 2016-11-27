@@ -84,27 +84,28 @@ static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self) {
 static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
+	mrb_state *mrb;
 	FILE *f;
 	mrb_value status;
 
-	inst->mrb = mrb_open();
-	if (!inst->mrb) {
+	mrb = inst->mrb = mrb_open();
+	if (!mrb) {
 		ERROR("mruby initialization failed");
 		return -1;
 	}
 
 	/* Define the freeradius module */
 	DEBUG("Creating module %s", inst->module_name);
-	inst->mruby_module = mrb_define_module(inst->mrb, inst->module_name);
+	inst->mruby_module = mrb_define_module(mrb, inst->module_name);
 	if (!inst->mruby_module) {
 		ERROR("Creating module %s failed", inst->module_name);
 		return -1;
 	}
 
 	/* Define the radlog method */
-	mrb_define_class_method(inst->mrb, inst->mruby_module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
+	mrb_define_class_method(mrb, inst->mruby_module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
 
-#define A(x) mrb_define_const(inst->mrb, inst->mruby_module, #x, mrb_fixnum_value(x));
+#define A(x) mrb_define_const(mrb, inst->mruby_module, #x, mrb_fixnum_value(x));
 	/* Define the logging constants */
 	A(L_DBG);
 	A(L_WARN);
@@ -133,7 +134,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 #undef A
 
 	/* Define the Request class */
-	inst->mruby_request = mrb_define_class_under(inst->mrb, inst->mruby_module, "Request", inst->mrb->object_class);
+	inst->mruby_request = mrb_define_class_under(mrb, inst->mruby_module, "Request", mrb->object_class);
 	if (!inst->mruby_request) {
 		ERROR("Creating class %s:Request failed", inst->module_name);
 		return -1;
@@ -141,7 +142,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 
 	/* Add lists to the Request class */
 	/* FIXME: Use attr_reader (if available) */
-	mrb_define_method(inst->mrb, inst->mruby_request, "request", mruby_request_request, MRB_ARGS_NONE());
+	mrb_define_method(mrb, inst->mruby_request, "request", mruby_request_request, MRB_ARGS_NONE());
 
 
 	DEBUG("Loading file %s...", inst->filename);
@@ -151,14 +152,14 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 		return -1;
 	}
 
-	status = mrb_load_file(inst->mrb, f);
+	status = mrb_load_file(mrb, f);
 	if (mrb_undef_p(status)) {
 		ERROR("Parsing file failed");
 		return -1;
 	}
 	fclose(f);
 
-	status = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), "instantiate", 0);
+	status = mrb_funcall(mrb, mrb_top_self(mrb), "instantiate", 0);
 	if (mrb_undef_p(status)) {
 		ERROR("Running instantiate failed");
 		return -1;
@@ -170,27 +171,28 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 #define BUF_SIZE 1024
 static mrb_value mruby_request_to_ary(rlm_mruby_t const *inst, REQUEST *request)
 {
+	mrb_state *mrb = inst->mrb;
 	mrb_value res;
 	VALUE_PAIR *vp;
 	vp_cursor_t cursor;
 	char buf[BUF_SIZE]; /* same size as fr_pair_fprint buffer */
 
-	res = mrb_ary_new(inst->mrb);
+	res = mrb_ary_new(mrb);
 	for (vp = fr_cursor_init(&cursor, &request->packet->vps); vp; vp = fr_cursor_next(&cursor)) {
 		mrb_value tmp, key, val;
-		tmp = mrb_ary_new_capa(inst->mrb, 2);
+		tmp = mrb_ary_new_capa(mrb, 2);
 		if (vp->da->flags.has_tag) {
 			snprintf(buf, BUF_SIZE, "%s:%d", vp->da->name, vp->tag);
-			key = mrb_str_new_cstr(inst->mrb, buf);
+			key = mrb_str_new_cstr(mrb, buf);
 		} else {
-			key = mrb_str_new_cstr(inst->mrb, vp->da->name);
+			key = mrb_str_new_cstr(mrb, vp->da->name);
 		}
 		fr_pair_value_snprint(buf, sizeof(buf), vp, '\0');
-		val = mrb_str_new_cstr(inst->mrb, buf);
-		mrb_ary_push(inst->mrb, tmp, key);
-		mrb_ary_push(inst->mrb, tmp, val);
+		val = mrb_str_new_cstr(mrb, buf);
+		mrb_ary_push(mrb, tmp, key);
+		mrb_ary_push(mrb, tmp, val);
 
-		mrb_ary_push(inst->mrb, res, tmp);
+		mrb_ary_push(mrb, res, tmp);
 	}
 
 	return res;
@@ -275,11 +277,12 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 
 static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const *inst, char const *function_name)
 {
+	mrb_state *mrb = inst->mrb;
 	mrb_value mruby_request, mruby_result;
 
-	mruby_request = mrb_obj_new(inst->mrb, inst->mruby_request, 0, NULL);
-	mrb_iv_set(inst->mrb, mruby_request, mrb_intern_cstr(inst->mrb, "@request"), mruby_request_to_ary(inst, request));
-	mruby_result = mrb_funcall(inst->mrb, mrb_top_self(inst->mrb), function_name, 1, mruby_request);
+	mruby_request = mrb_obj_new(mrb, inst->mruby_request, 0, NULL);
+	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@request"), mruby_request_to_ary(inst, request));
+	mruby_result = mrb_funcall(mrb, mrb_top_self(mrb), function_name, 1, mruby_request);
 
 	/* Two options for the return value:
 	 * - a fixnum: convert to rlm_rcode_t, and return that
@@ -292,7 +295,7 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 	switch (mrb_type(mruby_result)) {
 		/* If it is a Fixnum: return that value */
 		case MRB_TT_FIXNUM:
-			return (rlm_rcode_t)mrb_int(inst->mrb, mruby_result);
+			return (rlm_rcode_t)mrb_int(mrb, mruby_result);
 			break;
 		case MRB_TT_ARRAY:
 			/* Must have exactly three items */
@@ -303,26 +306,26 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 
 			/* First item must be a Fixnum, this will be the return type */
 			if (mrb_type(mrb_ary_entry(mruby_result, 0)) != MRB_TT_FIXNUM) {
-				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 0))));
+				ERROR("Expected first array element to be a Fixnum, got %s instead", RSTRING_PTR(mrb_obj_as_string(mrb, mrb_ary_entry(mruby_result, 0))));
 				return RLM_MODULE_FAIL;
 			}
 
 			/* Second and third items must be Arrays, these will be the updates for reply and control */
 			if (mrb_type(mrb_ary_entry(mruby_result, 1)) != MRB_TT_ARRAY) {
-				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 1))));
+				ERROR("Expected second array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(mrb, mrb_ary_entry(mruby_result, 1))));
 				return  RLM_MODULE_FAIL;
 			} else if (mrb_type(mrb_ary_entry(mruby_result, 2)) != MRB_TT_ARRAY) {
-				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mrb_ary_entry(mruby_result, 2))));
+				ERROR("Expected third array element to be an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(mrb, mrb_ary_entry(mruby_result, 2))));
 				return RLM_MODULE_FAIL;
 			}
 
-			add_vp_tuple(request->reply, request, &request->reply->vps, inst->mrb, mrb_ary_entry(mruby_result, 1), function_name);
-			add_vp_tuple(request, request, &request->control, inst->mrb, mrb_ary_entry(mruby_result, 2), function_name);
-			return (rlm_rcode_t)mrb_int(inst->mrb, mrb_ary_entry(mruby_result, 0));
+			add_vp_tuple(request->reply, request, &request->reply->vps, mrb, mrb_ary_entry(mruby_result, 1), function_name);
+			add_vp_tuple(request, request, &request->control, mrb, mrb_ary_entry(mruby_result, 2), function_name);
+			return (rlm_rcode_t)mrb_int(mrb, mrb_ary_entry(mruby_result, 0));
 			break;
 		default:
 			/* Invalid return type */
-			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(inst->mrb, mruby_result)));
+			ERROR("Expected return to be a Fixnum or an Array, got %s instead", RSTRING_PTR(mrb_obj_as_string(mrb, mruby_result)));
 			return RLM_MODULE_FAIL;
 			break;
 	}
