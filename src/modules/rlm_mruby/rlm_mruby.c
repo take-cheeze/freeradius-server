@@ -28,12 +28,7 @@ RCSID("$Id$")
 #include <freeradius-devel/modules.h>
 #include <freeradius-devel/rad_assert.h>
 
-#include <mruby.h>
-#include <mruby/compile.h>
-#include <mruby/array.h>
-#include <mruby/numeric.h>
-#include <mruby/string.h>
-#include <mruby/variable.h>
+#include "rlm_mruby.h"
 
 /*
  *	Define a structure for our module configuration.
@@ -69,24 +64,6 @@ static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self)
 	radlog(&default_log, level, "rlm_ruby: %s", msg);
 
 	return mrb_nil_value();
-}
-
-static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self)
-{
-	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@request"));
-}
-
-static struct RClass *mruby_request_class(mrb_state *mrb, struct RClass *parent)
-{
-	struct RClass *request;
-
-	MEM(request = mrb_define_class_under(mrb, parent, "Request", mrb->object_class));
-
-	/* Add lists to the Request class */
-	/* FIXME: Use attr_reader (if available) */
-	mrb_define_method(mrb, request, "request", mruby_request_request, MRB_ARGS_NONE());
-
-	return request;
 }
 
 /*
