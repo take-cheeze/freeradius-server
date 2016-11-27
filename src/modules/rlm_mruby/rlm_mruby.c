@@ -152,9 +152,8 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 }
 
 #define BUF_SIZE 1024
-static mrb_value mruby_vps_to_ary(rlm_mruby_t const *inst, VALUE_PAIR **vps)
+static mrb_value mruby_vps_to_ary(mrb_state *mrb, VALUE_PAIR **vps)
 {
-	mrb_state *mrb = inst->mrb;
 	mrb_value res;
 	VALUE_PAIR *vp;
 	vp_cursor_t cursor;
@@ -259,10 +258,9 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 	}
 }
 
-static void mruby_set_vps(rlm_mruby_t const *inst, mrb_value mruby_request, char const *name, VALUE_PAIR **vps)
+static void mruby_set_vps(mrb_state *mrb, mrb_value mruby_request, char const *name, VALUE_PAIR **vps)
 {
-	mrb_state *mrb = inst->mrb;
-	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, name), mruby_vps_to_ary(inst, vps));
+	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, name), mruby_vps_to_ary(mrb, vps));
 }
 
 static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const *inst, char const *function_name)
@@ -271,14 +269,14 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 	mrb_value mruby_request, mruby_result;
 
 	mruby_request = mrb_obj_new(mrb, inst->mruby_request, 0, NULL);
-	mruby_set_vps(inst, mruby_request, "@request", &request->packet->vps);
-	mruby_set_vps(inst, mruby_request, "@reply", &request->reply->vps);
-	mruby_set_vps(inst, mruby_request, "@control", &request->control);
-	mruby_set_vps(inst, mruby_request, "@session_state", &request->state);
+	mruby_set_vps(mrb, mruby_request, "@request", &request->packet->vps);
+	mruby_set_vps(mrb, mruby_request, "@reply", &request->reply->vps);
+	mruby_set_vps(mrb, mruby_request, "@control", &request->control);
+	mruby_set_vps(mrb, mruby_request, "@session_state", &request->state);
 #ifdef WITH_PROXY
 	if (request->proxy) {
-		mruby_set_vps(inst, mruby_request, "@proxy_request", &request->proxy->packet->vps);
-		mruby_set_vps(inst, mruby_request, "@proxy_reply", &request->proxy->reply->vps);
+		mruby_set_vps(mrb, mruby_request, "@proxy_request", &request->proxy->packet->vps);
+		mruby_set_vps(mrb, mruby_request, "@proxy_reply", &request->proxy->reply->vps);
 	}
 #endif
 	mruby_result = mrb_funcall(mrb, mrb_top_self(mrb), function_name, 1, mruby_request);
