@@ -201,59 +201,75 @@ static void add_vp_tuple(TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR **vps, mr
 
 	for (i = 0; i < RARRAY_LEN(value); i++) {
 		mrb_value tuple = mrb_ary_entry(value, i);
+		mrb_value key, val;
+		char const *ckey, *cval;
+		VALUE_PAIR *vp;
+		vp_tmpl_t dst;
+		FR_TOKEN op = T_OP_EQ;
 
 		/* This tuple should be an array of length 2 */
 		if (mrb_type(tuple) != MRB_TT_ARRAY) {
 			REDEBUG("add_vp_tuple, %s: non-array passed at index %i", function_name, i);
-		} else if (RARRAY_LEN(tuple) != 2 && RARRAY_LEN(tuple) != 3) {
+			continue;
+		}
+
+		if (RARRAY_LEN(tuple) != 2 && RARRAY_LEN(tuple) != 3) {
 			REDEBUG("add_vp_tuple, %s: array with incorrect length passed at index %i, expected 2 or 3, got %i", function_name, i, RARRAY_LEN(tuple));
-		} else {
-			mrb_value key, val;
-			key = mrb_ary_entry(tuple, 0);
-			val = mrb_ary_entry(tuple, -1);
-			if (mrb_type(key) != MRB_TT_STRING) {
-				REDEBUG("add_vp_tuple, %s: tuple element %i must have a string as first element", function_name, i);
+			continue;
+		}
+
+		key = mrb_ary_entry(tuple, 0);
+		val = mrb_ary_entry(tuple, -1);
+		if (mrb_type(key) != MRB_TT_STRING) {
+			REDEBUG("add_vp_tuple, %s: tuple element %i must have a string as first element", function_name, i);
+			continue;
+		}
+
+		ckey = mrb_str_to_cstr(mrb, key);
+		cval = mrb_str_to_cstr(mrb, mrb_obj_as_string(mrb, val));
+		if (ckey == NULL || cval == NULL) {
+			REDEBUG("%s: string conv failed", function_name);
+			continue;
+		}
+
+
+		if (RARRAY_LEN(tuple) == 3) {
+			if (mrb_type(mrb_ary_entry(tuple, 1)) != MRB_TT_STRING) {
+				REDEBUG("Invalid type for operator, expected string, falling back to =");
 			} else {
-				char const *ckey, *cval;
-				ckey = mrb_str_to_cstr(mrb, key);
-				cval = mrb_str_to_cstr(mrb, mrb_obj_as_string(mrb, val));
-				if (ckey == NULL || cval == NULL) {
-					REDEBUG("%s: string conv failed", function_name);
-				} else {
-					VALUE_PAIR *vp;
-					vp_tmpl_t dst;
-					FR_TOKEN op = T_OP_EQ;
-					memset(&dst, 0, sizeof(dst));
-					if (RARRAY_LEN(tuple) == 3) {
-						if (mrb_type(mrb_ary_entry(tuple, 1)) != MRB_TT_STRING) {
-							REDEBUG("Invalid type for operator, expected string");
-						} else {
-							char const *cop = mrb_str_to_cstr(mrb, mrb_ary_entry(tuple, 1));
-							if (!(op = fr_str2int(fr_tokens_table, cop, 0))) {
-								REDEBUG("Invalid operator: %s, falling back to =", cop);
-								op = T_OP_EQ;
-							}
-						}
-					}
-					DEBUG("%s: %s %s %s", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
-					if (tmpl_from_attr_str(&dst, ckey, REQUEST_CURRENT, PAIR_LIST_REPLY, false, false) <= 0) {
-						ERROR("Failed to find attribute %s", ckey);
-					} else if (radius_request(&request, dst.tmpl_request) < 0) {
-						ERROR("Attribute name %s refers to outer request but not in a tunnel, skipping...", ckey);
-					} else if (!(vp = fr_pair_afrom_da(ctx, dst.tmpl_da))) {
-						ERROR("Failed to create attribute %s", ckey);
-					} else {
-						vp->op = op;
-						if (fr_pair_value_from_str(vp, cval, -1) < 0) {
-							REDEBUG("%s: %s %s %s failed", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
-						} else {
-							DEBUG("%s: %s %s %s OK", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
-						}
-						radius_pairmove(request, vps, vp, false);
-					}
+				char const *cop = mrb_str_to_cstr(mrb, mrb_ary_entry(tuple, 1));
+				if (!(op = fr_str2int(fr_tokens_table, cop, 0))) {
+					REDEBUG("Invalid operator: %s, falling back to =", cop);
+					op = T_OP_EQ;
 				}
 			}
 		}
+		DEBUG("%s: %s %s %s", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+
+		memset(&dst, 0, sizeof(dst));
+		if (tmpl_from_attr_str(&dst, ckey, REQUEST_CURRENT, PAIR_LIST_REPLY, false, false) <= 0) {
+			ERROR("Failed to find attribute %s", ckey);
+			continue;
+		}
+
+		if (radius_request(&request, dst.tmpl_request) < 0) {
+			ERROR("Attribute name %s refers to outer request but not in a tunnel, skipping...", ckey);
+			continue;
+		}
+
+		if (!(vp = fr_pair_afrom_da(ctx, dst.tmpl_da))) {
+			ERROR("Failed to create attribute %s", ckey);
+			continue;
+		}
+
+		vp->op = op;
+		if (fr_pair_value_from_str(vp, cval, -1) < 0) {
+			REDEBUG("%s: %s %s %s failed", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+		} else {
+			DEBUG("%s: %s %s %s OK", function_name, ckey, fr_int2str(fr_tokens_table, op, "="), cval);
+		}
+
+		radius_pairmove(request, vps, vp, false);
 	}
 }
 
