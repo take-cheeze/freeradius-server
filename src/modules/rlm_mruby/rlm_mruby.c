@@ -44,6 +44,7 @@ typedef struct rlm_mruby_t {
 	mrb_state *mrb;
 
 	struct RClass *mruby_request;
+	mrb_value mrubyconf_hash;
 } rlm_mruby_t;
 
 /*
@@ -66,6 +67,54 @@ static mrb_value mruby_radlog(mrb_state *mrb, UNUSED mrb_value self)
 	return mrb_nil_value();
 }
 
+static void mruby_parse_config(mrb_state *mrb, CONF_SECTION *cs, int lvl, mrb_value hash)
+{
+	int indent_section = (lvl + 1) * 4;
+	int indent_item = (lvl + 2) * 4;
+	CONF_ITEM *ci = NULL;
+
+	if (!cs) return;
+
+	DEBUG("%*s%s {", indent_section, " ", cf_section_name1(cs));
+
+	while ((ci = cf_item_find_next(cs, ci))) {
+		if (cf_item_is_section(ci)) {
+			CONF_SECTION *sub_cs = cf_item_to_section(ci);
+			char const *key = cf_section_name1(sub_cs);
+			mrb_value sub_hash, mrubyKey;
+
+			if (!key) continue;
+
+			mrubyKey = mrb_str_new_cstr(mrb, key);
+
+			/* TODO: Check if the key already exists */
+
+			sub_hash = mrb_hash_new(mrb);
+			mrb_hash_set(mrb, hash, mrubyKey, sub_hash);
+
+			mruby_parse_config(mrb, sub_cs, lvl + 1, sub_hash);
+		} else if (cf_item_is_pair(ci)) {
+			CONF_PAIR *cp = cf_item_to_pair(ci);
+			const char *key = cf_pair_attr(cp);
+			const char *value = cf_pair_value(cp);
+			mrb_value mrubyKey, mrubyValue;
+
+			if (!key || !value) continue;
+
+			mrubyKey = mrb_str_new_cstr(mrb, key);
+			mrubyValue = mrb_str_new_cstr(mrb, value);
+
+			/* TODO: Check if the key already exists */
+
+			mrb_hash_set(mrb, hash, mrubyKey, mrubyValue);
+
+			DEBUG("%*s%s = %s", indent_item, " ", key, value);
+		}
+	}
+
+	DEBUG("%*s}", indent_section, " ");
+}
+
 /*
  *	Do any per-module initialization that is separate to each
  *	configured instance of the module.  e.g. set up connections
@@ -76,6 +125,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 {
 	rlm_mruby_t *inst = instance;
 	mrb_state *mrb;
+	CONF_SECTION *cs;
 	struct RClass *mruby_module;
 	FILE *f;
 	mrb_value status;
@@ -124,6 +174,11 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	A(RLM_MODULE_UPDATED)
 	A(RLM_MODULE_NUMCODES)
 #undef A
+
+	/* Convert a FreeRADIUS config structure into a mruby hash */
+	inst->mrubyconf_hash = mrb_hash_new(mrb);
+	cs = cf_section_sub_find(conf, "config");
+	if (cs) mruby_parse_config(mrb, cs, 0, inst->mrubyconf_hash);
 
 	/* Define the Request class */
 	inst->mruby_request = mruby_request_class(mrb, mruby_module);
@@ -269,6 +324,7 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 	mrb_value mruby_request, mruby_result;
 
 	mruby_request = mrb_obj_new(mrb, inst->mruby_request, 0, NULL);
+	mrb_iv_set(mrb, mruby_request, mrb_intern_cstr(mrb, "@frconfig"), inst->mrubyconf_hash);
 	mruby_set_vps(mrb, mruby_request, "@request", &request->packet->vps);
 	mruby_set_vps(mrb, mruby_request, "@reply", &request->reply->vps);
 	mruby_set_vps(mrb, mruby_request, "@control", &request->control);

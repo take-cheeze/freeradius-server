@@ -25,6 +25,11 @@
 
 #include "rlm_mruby.h"
 
+static mrb_value mruby_request_frconfig(mrb_state *mrb, mrb_value self)
+{
+	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@frconfig"));
+}
+
 static mrb_value mruby_request_request(mrb_state *mrb, mrb_value self)
 {
 	return mrb_iv_get(mrb, self, mrb_intern_cstr(mrb, "@request"));
@@ -72,6 +77,7 @@ struct RClass *mruby_request_class(mrb_state *mrb, struct RClass *parent)
 	request = mrb_define_class_under(mrb, parent, "Request", mrb->object_class);
 
 	/* FIXME: Use attr_reader (if available) */
+	mrb_define_method(mrb, request, "frconfig", mruby_request_frconfig, MRB_ARGS_NONE());
 	mrb_define_method(mrb, request, "request", mruby_request_request, MRB_ARGS_NONE());
 	mrb_define_method(mrb, request, "reply", mruby_request_reply, MRB_ARGS_NONE());
 	mrb_define_method(mrb, request, "control", mruby_request_control, MRB_ARGS_NONE());
