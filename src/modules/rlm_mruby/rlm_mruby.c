@@ -87,7 +87,10 @@ static void mruby_parse_config(mrb_state *mrb, CONF_SECTION *cs, int lvl, mrb_va
 
 			mrubyKey = mrb_str_new_cstr(mrb, key);
 
-			/* TODO: Check if the key already exists */
+			if (!mrb_nil_p(mrb_hash_get(mrb, hash, mrubyKey))) {
+				WARN("rlm_mruby: Ignoring duplicate config section '%s'", key);
+				continue;
+			}
 
 			sub_hash = mrb_hash_new(mrb);
 			mrb_hash_set(mrb, hash, mrubyKey, sub_hash);
@@ -104,7 +107,10 @@ static void mruby_parse_config(mrb_state *mrb, CONF_SECTION *cs, int lvl, mrb_va
 			mrubyKey = mrb_str_new_cstr(mrb, key);
 			mrubyValue = mrb_str_new_cstr(mrb, value);
 
-			/* TODO: Check if the key already exists */
+			if (!mrb_nil_p(mrb_hash_get(mrb, hash, mrubyKey))) {
+				WARN("rlm_mruby: Ignoring duplicate config item '%s'", key);
+				continue;
+			}
 
 			mrb_hash_set(mrb, hash, mrubyKey, mrubyValue);
 
