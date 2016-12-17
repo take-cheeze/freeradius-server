@@ -18,3 +18,4 @@ There are a lot of possible improvements here:
 * Add methods on the request object to modify the lists. The current return value is a bit ridiculous, a call like `request.config.add_vp('Cleartext-Password', 'hello')` looks a lot cleaner
 * In a similar fashion: methods to get the attributes: `request.request.get_attribute('User-Name')`
 * Add a xlat callback, similar to `rlm_perl` `radius_xlat`
+* Unit tests
