@@ -43,6 +43,7 @@ typedef struct rlm_mruby_t {
 
 	mrb_state *mrb;
 
+	struct RClass *mruby_module;
 	struct RClass *mruby_request;
 	mrb_value mrubyconf_hash;
 } rlm_mruby_t;
@@ -132,7 +133,6 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	rlm_mruby_t *inst = instance;
 	mrb_state *mrb;
 	CONF_SECTION *cs;
-	struct RClass *mruby_module;
 	FILE *f;
 	mrb_value status;
 
@@ -144,16 +144,16 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 
 	/* Define the freeradius module */
 	DEBUG("Creating module %s", inst->module_name);
-	mruby_module = mrb_define_module(mrb, inst->module_name);
-	if (!mruby_module) {
+	inst->mruby_module = mrb_define_module(mrb, inst->module_name);
+	if (!inst->mruby_module) {
 		ERROR("Creating module %s failed", inst->module_name);
 		return -1;
 	}
 
 	/* Define the radlog method */
-	mrb_define_class_method(mrb, mruby_module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
+	mrb_define_class_method(mrb, inst->mruby_module, "radlog", mruby_radlog, MRB_ARGS_REQ(2));
 
-#define A(x) mrb_define_const(mrb, mruby_module, #x, mrb_fixnum_value(x));
+#define A(x) mrb_define_const(mrb, inst->mruby_module, #x, mrb_fixnum_value(x));
 	/* Define the logging constants */
 	A(L_DBG);
 	A(L_WARN);
@@ -187,7 +187,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	if (cs) mruby_parse_config(mrb, cs, 0, inst->mrubyconf_hash);
 
 	/* Define the Request class */
-	inst->mruby_request = mruby_request_class(mrb, mruby_module);
+	inst->mruby_request = mruby_request_class(mrb, inst->mruby_module);
 
 	DEBUG("Loading file %s...", inst->filename);
 	f = fopen(inst->filename, "r");
@@ -203,7 +203,7 @@ static int mod_instantiate(UNUSED CONF_SECTION *conf, void *instance)
 	}
 	fclose(f);
 
-	status = mrb_funcall(mrb, mrb_top_self(mrb), "instantiate", 0);
+	status = mrb_funcall(mrb, mrb_obj_value(inst->mruby_module), "instantiate", 0);
 	if (mrb_undef_p(status)) {
 		ERROR("Running instantiate failed");
 		return -1;
@@ -341,7 +341,7 @@ static rlm_rcode_t CC_HINT(nonnull) do_mruby(REQUEST *request, rlm_mruby_t const
 		mruby_set_vps(mrb, mruby_request, "@proxy_reply", &request->proxy->reply->vps);
 	}
 #endif
-	mruby_result = mrb_funcall(mrb, mrb_top_self(mrb), function_name, 1, mruby_request);
+	mruby_result = mrb_funcall(mrb, mrb_obj_value(inst->mruby_module), function_name, 1, mruby_request);
 
 	/* Two options for the return value:
 	 * - a fixnum: convert to rlm_rcode_t, and return that
