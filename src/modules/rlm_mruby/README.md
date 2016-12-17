@@ -12,6 +12,9 @@ There are a lot of possible improvements here:
 
 * Restructure the code, the current status is mainly a PoC
 * Allow nested module as name (as in: `Module1::Module2::Radiusd`)
+* Document the possibilities, like logging and the methods of the request object
+* Find out how to allow the user to include gems, or do we really have to include them compile time
+* Add option to allow pre-compiled mruby scripts
 * Is using a module really the best solution? We merely use it as a namespace, maybe something more OO would be nicer?
 * Can we simplify the getter methods? Simulating something like `attr_reader` would be perfect here
 * Use more suitable data types for the values passed to the method. We have data types like Integer and DateTime, so use those instead of stringifying everything
