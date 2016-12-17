@@ -4,24 +4,24 @@ module Radiusd
         radlog(L_DBG, "[mruby]Running ruby instantiate")
         return RLM_MODULE_OK
     end
-    def self.authenticate(arg)
+    def self.authenticate(request)
         radlog(L_DBG, "[mruby]Running ruby authenticate")
         return RLM_MODULE_NOOP
     end
-    def self.authorize(arg)
+    def self.authorize(request)
         radlog(L_ERR, "[mruby]Running ruby authorize")
-        radlog(L_WARN, "Authorize: #{arg.inspect}(#{arg.class})")
-        radlog(L_WARN, "Authorize: #{arg.request.inspect}(#{arg.request.class})")
+        radlog(L_WARN, "Authorize: #{request.inspect}(#{request.class})")
+        radlog(L_WARN, "Authorize: #{request.request.inspect}(#{request.request.class})")
     
         reply = [["Framed-MTU", 1500]]
         control = [["Cleartext-Password", "hello"], ["Tmp-String-0", "!*", "ANY"]]
         return [RLM_MODULE_UPDATED, reply, control]
     end
-    def self.post_auth(arg)
+    def self.post_auth(request)
         radlog(L_DBG, "[mruby]Running ruby post_auth")
         return RLM_MODULE_NOOP
     end
-    def self.accounting(arg)
+    def self.accounting(request)
         radlog(L_DBG, "[mruby]Running ruby accounting")
         return RLM_MODULE_NOOP
     end
